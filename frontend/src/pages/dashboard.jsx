@@ -136,61 +136,98 @@ export default function DashBoard() {
           <div></div>
         </div>
 
-        {rows.map((r, i) => (
-          <div className="row" key={i}>
-            <input
-              type="text"
-              placeholder="e.g. Data Structures"
-              value={r.name}
-              onChange={(e) => updateRow(i, "name", e.target.value)}
-            />
-            <select value={r.batch} onChange={(e) => updateRow(i, "batch", e.target.value)}>
-              {BATCHES.map((b) => (
-                <option key={b} value={b}>
-                  {b}
-                </option>
-              ))}
-            </select>
-            <select value={r.staff} onChange={(e) => updateRow(i, "staff", e.target.value)}>
-              {DEFAULT_STAFF.map((name) => (
-                <option key={name} value={name}>
-                  {name}
-                </option>
-              ))}
-            </select>
-            <input
-              type="number"
-              min="1"
-              max="20"
-              value={r.theory_hours}
-              onChange={(e) => updateRow(i, "theory_hours", e.target.value)}
-            />
-            <label className="chk">
-              <input
-                type="checkbox"
-                checked={r.has_lab}
-                onChange={(e) => updateRow(i, "has_lab", e.target.checked)}
-              />{" "}
-              lab
-            </label>
-            <input
-              type="number"
-              min="2"
-              step="2"
-              disabled={!r.has_lab}
-              value={r.has_lab ? r.lab_hours : ""}
-              placeholder={r.has_lab ? "" : "—"}
-              onChange={(e) => updateRow(i, "lab_hours", e.target.value)}
-            />
-            <button className="btn-remove" onClick={() => removeRow(i)}>
-              ✕
-            </button>
-          </div>
-        ))}
+{BATCHES.map((batch) => (
+  <div key={batch} className="batch-section">
+    <h2>Batch {batch}</h2>
 
-        <button className="btn-add" onClick={addRow}>
-          + Add subject row
-        </button>
+    {rows
+      .map((r, i) => ({ ...r, index: i }))
+      .filter((r) => r.batch === batch)
+      .map((r) => (
+        <div className="row" key={r.index}>
+          <input
+            type="text"
+            placeholder="Subject"
+            value={r.name}
+            onChange={(e) =>
+              updateRow(r.index, "name", e.target.value)
+            }
+          />
+
+          <select
+            value={r.batch}
+            onChange={(e) =>
+              updateRow(r.index, "batch", e.target.value)
+            }
+          >
+            {BATCHES.map((b) => (
+              <option key={b} value={b}>
+                {b}
+              </option>
+            ))}
+          </select>
+
+          <select
+            value={r.staff}
+            onChange={(e) =>
+              updateRow(r.index, "staff", e.target.value)
+            }
+          >
+            {DEFAULT_STAFF.map((name) => (
+              <option key={name} value={name}>
+                {name}
+              </option>
+            ))}
+          </select>
+
+          <input
+            type="number"
+            value={r.theory_hours}
+            onChange={(e) =>
+              updateRow(r.index, "theory_hours", e.target.value)
+            }
+          />
+
+          <label className="chk">
+            <input
+              type="checkbox"
+              checked={r.has_lab}
+              onChange={(e) =>
+                updateRow(r.index, "has_lab", e.target.checked)
+              }
+            />
+            lab
+          </label>
+
+          <input
+            type="number"
+            disabled={!r.has_lab}
+            value={r.has_lab ? r.lab_hours : ""}
+            onChange={(e) =>
+              updateRow(r.index, "lab_hours", e.target.value)
+            }
+          />
+
+          <button
+            className="btn-remove"
+            onClick={() => removeRow(r.index)}
+          >
+            ✕
+          </button>
+        </div>
+      ))}
+
+    <button
+      className="btn-add"
+      onClick={() =>
+        setRows([...rows, { ...emptyRow(), batch }])
+      }
+    >
+      + Add Subject for Batch {batch}
+    </button>
+  </div>
+))}
+
         <br />
         <button className="btn-generate" disabled={loading} onClick={generate}>
           {loading ? "Generating…" : "Generate Timetable"}
