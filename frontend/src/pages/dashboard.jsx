@@ -113,7 +113,7 @@ export default function DashBoard() {
 
   return (
     <div className="app">
-      <h1 class="header">IT Department Timetable Generator</h1>
+      <h1>IT Department Timetable Generator</h1>
       <div className="panel">
         <div className="meta-row">
           <span>
@@ -130,9 +130,9 @@ export default function DashBoard() {
           <div>Subject</div>
           <div>Batch</div>
           <div>Staff</div>
-          <div>L hrs/wk</div>
-          <div>Lab (P)?</div>
-          <div>P hrs/wk</div>
+          <div>Lecture hrs/wk</div>
+          <div>Lab (Practical)?</div>
+          <div>Practical hrs/wk</div>
           <div></div>
         </div>
 
