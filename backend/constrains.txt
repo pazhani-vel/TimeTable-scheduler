@@ -22,9 +22,10 @@
 | 19  | Naan Mudalvan should be continues within one day either day or afternoon
 | 20  | The audit course and IOC should be in the last 2 hours of a day
 | 21  | Every theory and lab hour should follow the above rule
-| 22  | Try to complete to allocation within within 6 hours
+| 22  | Try to complete to allocation within 6 hours
 | 23  | Theory immediately followed by lab on the same day for same subject is not allowed
-| 23  | If the theory is two in a day then we can allocate one theory after to that lab
-
+| 23  | If the lab is two in a day then we can allocate one theory after to that lab
+| 24  | Try to Balance Workload Across the Week for every staff
+| 25  | 
 
 is the ita have any hours for a week.
