@@ -1,296 +1,273 @@
-import { useState } from "react";
-import "./dashboard.css"
+import React, { useState } from "react";
+import "./dashboard.css";
+
+import { BATCHES, DEFAULT_STAFF, SAMPLE_CURRICULUM_PRESET } from "../constants/academicData";
+import Header from "../components/Header";
+import MetaSettings from "../components/MetaSettings";
+import SubjectConfigTable from "../components/SubjectConfigTable";
+import TimetableGrid from "../components/TimetableGrid";
+import FacultyWorkloadView from "../components/FacultyWorkloadView";
+import PrintLayout from "../components/PrintLayout";
 
 const API_URL = "http://localhost:5000/api/generate";
 
-// Default IT department staff list — shown as a dropdown for every subject row.
-const DEFAULT_STAFF = [
-  "Dr. Radha Senthilkumar",
-  "Dr. P. AnandhaKumar",
-  "Dr. Dhananjay Kumar",
-  "Dr. M.R. Sumalatha",
-  "Dr. R. Geetha Ramani",
-  "Dr. P. Kola Sujatha",
-  "Dr. S. Umamaheswari",
-  "Dr. G. Rajesh",
-  "Dr. J. Dhalia Sweetlin",
-  "Dr. B. Lydia Elizabeth",
-  "M. Hemalatha",
-  "S.K. Lavanya",
-  "C. Sunil Retmin Raj",
-  "E. Pugazhendi",
-  "Dr. D. Vivekanandan",
-  "P. Seethalakshmi",
-  "Kannan sir",
-  "CN Mam",
-  "Prathiba Mam",
-  "Chemistry Mam",
-  "Industry person",
-  "Guest"
-];
-
-const BATCHES = ["A", "B"]; // IT dept, same semester, two batches
-
-// Fixed daily shape used purely for display: 4 periods, lunch, 4 periods.
-// periods_per_day sent to the solver stays a flat number (8 by default);
-// this map only controls how the grid is drawn with a lunch column inserted.
-function periodLabels(periodsPerDay) {
-  const half = Math.floor(periodsPerDay / 2);
-  const labels = [];
-  for (let p = 1; p <= periodsPerDay; p++) {
-    labels.push({ index: p - 1, label: `P${p}` });
-    if (p === half) labels.push({ lunch: true, label: "LUNCH\n12–1" });
-  }
-  return labels;
-}
-
-function emptyRow() {
+function createEmptyRow(batch = "A") {
   return {
-    batch: "A",
+    batch,
     name: "",
     staff: DEFAULT_STAFF[0],
-    theory_hours: 3, // L
+    theory_hours: 3,
     has_lab: false,
-    lab_hours: 2, // P
+    lab_hours: 2,
   };
 }
 
 export default function DashBoard() {
-
   const [days, setDays] = useState(5);
   const [periods, setPeriods] = useState(8);
-  const [rows, setRows] = useState([emptyRow(), emptyRow()]);
+  const [rows, setRows] = useState(() => [
+    createEmptyRow("A"),
+    createEmptyRow("A"),
+    createEmptyRow("B"),
+    createEmptyRow("B"),
+  ]);
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState(null);
   const [error, setError] = useState("");
+  const [activeTab, setActiveTab] = useState("CONFIG"); // CONFIG | TIMETABLE | FACULTY
+  const [activeBatchGrid, setActiveBatchGrid] = useState("A");
 
+  // Row operations
   const updateRow = (i, field, value) => {
     const copy = [...rows];
     copy[i] = { ...copy[i], [field]: value };
     setRows(copy);
   };
 
-  const addRow = () => setRows([...rows, emptyRow()]);
+  const addRow = (batch = "A") => setRows([...rows, createEmptyRow(batch)]);
   const removeRow = (i) => setRows(rows.filter((_, idx) => idx !== i));
 
+  // Presets & Reset
+  const handleLoadPreset = () => {
+    setRows(SAMPLE_CURRICULUM_PRESET.map((item) => ({ ...item })));
+    setError("");
+  };
+
+  const handleReset = () => {
+    setRows([createEmptyRow("A"), createEmptyRow("B")]);
+    setResult(null);
+    setError("");
+  };
+
+  const handlePrint = () => {
+    window.print();
+  };
+
+  // Generate timetable via backend CP-SAT solver
   const generate = async () => {
+    // Basic client-side checks
+    if (rows.length === 0) {
+      setError("Please add at least one subject to generate a timetable.");
+      return;
+    }
+
+    const invalidRow = rows.find(
+      (r) => !r.name.trim() || !r.staff || !r.theory_hours || Number(r.theory_hours) <= 0
+    );
+    if (invalidRow) {
+      setError("Every subject requires a valid name, assigned staff, and at least 1 lecture hour.");
+      return;
+    }
+
+    const invalidLab = rows.find(
+      (r) => r.has_lab && (!r.lab_hours || Number(r.lab_hours) <= 0 || Number(r.lab_hours) % 2 !== 0)
+    );
+    if (invalidLab) {
+      setError(`Subject "${invalidLab.name}" has practical enabled, but lab (P) hours must be an even number (e.g. 2, 4).`);
+      return;
+    }
+
     setLoading(true);
     setError("");
-    setResult(null);
+
     try {
       const payload = {
         days: Number(days),
         periods_per_day: Number(periods),
         batches: BATCHES,
         subjects: rows.map((r) => ({
-          name: r.name,
+          name: r.name.trim(),
           batch: r.batch,
           staff: r.staff,
-          theory_hours: Number(r.theory_hours), // L
+          theory_hours: Number(r.theory_hours),
           has_lab: !!r.has_lab,
-          lab_hours: r.has_lab ? Number(r.lab_hours) : 0, // P
+          lab_hours: r.has_lab ? Number(r.lab_hours) : 0,
         })),
       };
+
       const res = await fetch(API_URL, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
+
       const data = await res.json();
       if (data.status === "OPTIMAL" || data.status === "FEASIBLE") {
         setResult(data);
+        setActiveTab("TIMETABLE");
       } else {
-        setError(data.message || "No feasible timetable found.");
+        setError(data.message || "No feasible timetable found. Check faculty or period allocation.");
       }
     } catch (e) {
-      setError("Could not reach backend at " + API_URL + " — is it running?");
+      setError("Could not connect to solver API server at " + API_URL + " — please ensure backend is running.");
     } finally {
       setLoading(false);
     }
   };
 
-  const cols = periodLabels(Number(periods));
-
   return (
-    <div className="app">
-      <h1>IT Department Timetable Generator</h1>
-      <div className="panel">
-        <div className="meta-row">
-          <span>
-            Working days{" "}
-            <input type="number" value={days} min="1" max="7" onChange={(e) => setDays(e.target.value)} />
-          </span>
-          <span>
-            Periods / day{" "}
-            <input type="number" value={periods} min="4" max="12" step="2" onChange={(e) => setPeriods(e.target.value)} />
-          </span>
-        </div>
+    <div className="dashboard-app">
+      {/* Printable Output View (visible only during print) */}
+      <PrintLayout result={result} days={days} periods={periods} />
 
-        <div className="row header">
-          <div>Subject</div>
-          <div>Batch</div>
-          <div>Staff</div>
-          <div>Lecture hrs/wk</div>
-          <div>Lab (Practical)?</div>
-          <div>Practical hrs/wk</div>
-          <div></div>
-        </div>
+      {/* Screen Interactive Application View */}
+      <div className="screen-layout">
+        <Header
+          onLoadPreset={handleLoadPreset}
+          onReset={handleReset}
+          onPrint={handlePrint}
+          hasResult={!!result}
+        />
 
-{BATCHES.map((batch) => (
-  <div key={batch} className="batch-section">
-    <h2>Batch {batch}</h2>
+        <main className="dashboard-main-content">
+          {/* Main Navigation Tabs */}
+          <div className="app-subnav">
+            <button
+              className={`subnav-btn ${activeTab === "CONFIG" ? "active" : ""}`}
+              onClick={() => setActiveTab("CONFIG")}
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M12 20h9" />
+                <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
+              </svg>
+              1. Subject & Faculty Setup
+            </button>
 
-    {rows
-      .map((r, i) => ({ ...r, index: i }))
-      .filter((r) => r.batch === batch)
-      .map((r) => (
-        <div className="row" key={r.index}>
-          <input
-            type="text"
-            placeholder="Subject"
-            value={r.name}
-            onChange={(e) =>
-              updateRow(r.index, "name", e.target.value)
-            }
-          />
+            <button
+              className={`subnav-btn ${activeTab === "TIMETABLE" ? "active" : ""} ${!result ? "disabled" : ""}`}
+              onClick={() => result && setActiveTab("TIMETABLE")}
+              disabled={!result}
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+                <line x1="16" y1="2" x2="16" y2="6" />
+                <line x1="8" y1="2" x2="8" y2="6" />
+                <line x1="3" y1="10" x2="21" y2="10" />
+              </svg>
+              2. Generated Timetable
+              {result && <span className="subnav-badge">Ready</span>}
+            </button>
 
-          <select
-            value={r.batch}
-            onChange={(e) =>
-              updateRow(r.index, "batch", e.target.value)
-            }
-          >
-            {BATCHES.map((b) => (
-              <option key={b} value={b}>
-                {b}
-              </option>
-            ))}
-          </select>
-
-          <select
-            value={r.staff}
-            onChange={(e) =>
-              updateRow(r.index, "staff", e.target.value)
-            }
-          >
-            {DEFAULT_STAFF.map((name) => (
-              <option key={name} value={name}>
-                {name}
-              </option>
-            ))}
-          </select>
-
-          <input
-            type="number"
-            value={r.theory_hours}
-            onChange={(e) =>
-              updateRow(r.index, "theory_hours", e.target.value)
-            }
-          />
-
-          <label className="chk">
-            <input
-              type="checkbox"
-              checked={r.has_lab}
-              onChange={(e) =>
-                updateRow(r.index, "has_lab", e.target.checked)
-              }
-            />
-            lab
-          </label>
-
-          <input
-            type="number"
-            disabled={!r.has_lab}
-            value={r.has_lab ? r.lab_hours : ""}
-            onChange={(e) =>
-              updateRow(r.index, "lab_hours", e.target.value)
-            }
-          />
-
-          <button
-            className="btn-remove"
-            onClick={() => removeRow(r.index)}
-          >
-            ✕
-          </button>
-        </div>
-      ))}
-
-    <button
-      className="btn-add"
-      onClick={() =>
-        setRows([...rows, { ...emptyRow(), batch }])
-      }
-    >
-      + Add Subject for Batch {batch}
-    </button>
-  </div>
-))}
-
-        <br />
-        <button className="btn-generate" disabled={loading} onClick={generate}>
-          {loading ? "Generating…" : "Generate Timetable"}
-        </button>
-
-        {error && <div className="status err">{error}</div>}
-        {result && <div className="status ok">Timetable generated ({result.status}).</div>}
-      </div>
-
-      {result &&
-        BATCHES.map((b) => (
-          <div className="grid-wrap" key={b}>
-            <h2>Batch {b}</h2>
-            <table>
-              <thead>
-                <tr>
-                  <th>Day</th>
-                  {cols.map((c, idx) =>
-                    c.lunch ? (
-                      <th key={"lunch-" + idx} className="lunch-col">
-                        Lunch
-                        <br />
-                        12–1
-                      </th>
-                    ) : (
-                      <th key={"p-" + c.index}>{c.label}</th>
-                    )
-                  )}
-                </tr>
-              </thead>
-              <tbody>
-                {result.timetable[b].map((row, d) => (
-                  <tr key={d}>
-                    <td className="day-label">Day {d + 1}</td>
-                    {cols.map((c, idx) => {
-                      if (c.lunch) {
-                        return (
-                          <td key={"lunch-cell-" + idx} className="lunch-col">
-                            <span className="empty-cell">🍴</span>
-                          </td>
-                        );
-                      }
-                      const cell = row[c.index];
-                      return (
-                        <td key={"cell-" + c.index}>
-                          {cell ? (
-                            <div>
-                              <div className="cell-subj">{cell.subject}</div>
-                              <div className="cell-staff">{cell.staff}</div>
-                              <div className={"cell-type " + cell.type}>{cell.type}</div>
-                            </div>
-                          ) : (
-                            <span className="empty-cell">—</span>
-                          )}
-                        </td>
-                      );
-                    })}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            <button
+              className={`subnav-btn ${activeTab === "FACULTY" ? "active" : ""} ${!result ? "disabled" : ""}`}
+              onClick={() => result && setActiveTab("FACULTY")}
+              disabled={!result}
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+                <circle cx="9" cy="7" r="4" />
+                <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+                <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+              </svg>
+              3. Faculty Workload Matrix
+            </button>
           </div>
-        ))}
+
+          {/* Status / Error Toast Alert */}
+          {error && (
+            <div className="alert-banner alert-banner-error">
+              <span className="alert-icon">⚠️</span>
+              <div className="alert-content">
+                <strong>Schedule Generation Error</strong>
+                <p>{error}</p>
+              </div>
+              <button className="alert-close" onClick={() => setError("")}>✕</button>
+            </div>
+          )}
+
+          {result && activeTab === "CONFIG" && (
+            <div className="alert-banner alert-banner-success">
+              <span className="alert-icon">✓</span>
+              <div className="alert-content">
+                <strong>Timetable Successfully Generated!</strong>
+                <p>Status: {result.status}. Switch to the "Generated Timetable" or "Faculty Workload Matrix" tab to view schedules.</p>
+              </div>
+            </div>
+          )}
+
+          {/* TAB 1: CONFIGURATION */}
+          {activeTab === "CONFIG" && (
+            <div className="tab-content fade-in">
+              <MetaSettings
+                days={days}
+                setDays={setDays}
+                periods={periods}
+                setPeriods={setPeriods}
+                loading={loading}
+                onGenerate={generate}
+              />
+
+              <div className="batches-grid">
+                {BATCHES.map((batch) => (
+                  <SubjectConfigTable
+                    key={batch}
+                    batch={batch}
+                    rows={rows}
+                    updateRow={updateRow}
+                    removeRow={removeRow}
+                    addRow={addRow}
+                    days={days}
+                    periods={periods}
+                  />
+                ))}
+              </div>
+
+              <div className="bottom-generate-bar">
+                <button
+                  className="btn btn-primary btn-lg"
+                  disabled={loading}
+                  onClick={generate}
+                >
+                  {loading ? "Solving Constraints…" : "Generate Department Timetable"}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* TAB 2: TIMETABLE GRID */}
+          {activeTab === "TIMETABLE" && (
+            <div className="tab-content fade-in">
+              <TimetableGrid
+                result={result}
+                activeBatch={activeBatchGrid}
+                setActiveBatch={setActiveBatchGrid}
+                periods={periods}
+              />
+            </div>
+          )}
+
+          {/* TAB 3: FACULTY WORKLOAD MATRIX */}
+          {activeTab === "FACULTY" && (
+            <div className="tab-content fade-in">
+              <FacultyWorkloadView
+                result={result}
+                days={days}
+                periods={periods}
+              />
+            </div>
+          )}
+        </main>
+      </div>
     </div>
   );
 }

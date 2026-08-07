@@ -1,0 +1,30 @@
+| No. | Constraint                                                                                     |
+| --- | ---------------------------------------------------------------------------------------------- |
+| 1   | Exact theory hours per week                                                                    |
+| 2   | Theory classes spread over **at most 2 days**                                                  |
+| 3   | `day_used` correctly reflects theory days                                                      |
+| 4   | Exact number of lab sessions (`lab_hours ÷ 2`)                                                 |
+| 5   | Every lab occupies **2 consecutive periods**                                                   |
+| 6   | Lab cannot cross the lunch break (P4–P5)                                                       |
+| 7   | At most one lab session per day for a subject                                                  |
+| 8   | Theory and lab of the same subject cannot occur on the same day                                |
+| 9   | A batch cannot have two classes in the same period                                             |
+| 10  | A staff member cannot teach two classes at the same time                                       |
+| 11  | A staff member must have at least **one free period** between separate classes on the same day |
+| 12  | The only exception to adjacent occupied periods is a **single 2-period lab block**             |
+| 13  | A timetable is produced only if all constraints are satisfiable                                |
+| 14  | The lab and theory should be consecutive
+| 15  | The morning 2 class should not be empty all days
+| 16  | If one staff taking the morning class on monday that staff should not take morning class for
+        particular batch on other days in the week
+| 17  | There are subject which should be on particular day in the week, that should be given by user
+| 18  | Fill the free period with library hours
+| 19  | Naan Mudalvan should be continues within one day either day or afternoon
+| 20  | The audit course and IOC should be in the last 2 hours of a day
+| 21  | Every theory and lab hour should follow the above rule
+| 22  | Try to complete to allocation within within 6 hours
+| 23  | Theory immediately followed by lab on the same day for same subject is not allowed
+| 23  | If the theory is two in a day then we can allocate one theory after to that lab
+
+
+is the ita have any hours for a week.
