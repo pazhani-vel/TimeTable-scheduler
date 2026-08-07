@@ -26,6 +26,8 @@
 | 23  | Theory immediately followed by lab on the same day for same subject is not allowed
 | 23  | If the lab is two in a day then we can allocate one theory after to that lab
 | 24  | Try to Balance Workload Across the Week for every staff
-| 25  | 
+| 25  | make sure that dept has only 2 AC labs and 1 non AC lab for the it students (2nd,3rd and 4th) year , 2batches each , also 4 yrs of aids one batch each they have a separate lab , dont mingle both
+        also make sure the labs don't get confused or overlapped
+
 
 is the ita have any hours for a week.
